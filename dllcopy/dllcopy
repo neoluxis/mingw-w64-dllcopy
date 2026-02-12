@@ -11,6 +11,7 @@ print_help() {
     echo "  --help, -h        Show this help message"
     echo "  -v, --version     Show version information"
     echo "  --verbose         Enable verbose output (show successful copies)"
+    echo "  -r, --recursive   Recursively search for DLLs in the directories"
     echo ""
     echo "Environment Variables:"
     echo "  DLLPATH           Colon-separated list of directories to search for DLLs (optional, defaults to PATH)"
@@ -24,6 +25,7 @@ print_version() {
 
 # 处理命令行选项
 verbose=false
+recursive=false
 args=()
 for arg in "$@"; do
     case $arg in
@@ -37,6 +39,9 @@ for arg in "$@"; do
             ;;
         --verbose)
             verbose=true
+            ;;
+        -r|--recursive)
+            recursive=true
             ;;
         *)
             args+=("$arg")
@@ -92,13 +97,25 @@ while IFS= read -r dll; do
     # 分割 search_paths
     IFS=':' read -ra paths <<< "$search_paths"
     for dir in "${paths[@]}"; do
-        if [ -f "$dir/$dll" ]; then
-            cp "$dir/$dll" "$exe_dir/"
-            if [ "$verbose" = true ]; then
-                echo "Copied $dll from $dir to $exe_dir"
+        if [ "$recursive" = true ]; then
+            dll_path=$(find "$dir" -name "$dll" -type f 2>/dev/null | head -n 1)
+            if [ -n "$dll_path" ]; then
+                cp "$dll_path" "$exe_dir/"
+                if [ "$verbose" = true ]; then
+                    echo "Copied $dll from $dll_path to $exe_dir"
+                fi
+                found=yes
+                break
             fi
-            found=yes
-            break
+        else
+            if [ -f "$dir/$dll" ]; then
+                cp "$dir/$dll" "$exe_dir/"
+                if [ "$verbose" = true ]; then
+                    echo "Copied $dll from $dir to $exe_dir"
+                fi
+                found=yes
+                break
+            fi
         fi
     done
 
